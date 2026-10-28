@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>rpx 响应式布局演练：750rpx 恒等于屏幕宽度</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 16px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f4f6fa; color: #1f2937;
+  }
+  h3 { margin: 0 0 4px; font-size: 15px; }
+  .tip { margin: 0 0 12px; font-size: 12px; color: #64748b; }
+  .controls { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; align-items: center; }
+  .controls button {
+    border: 1px solid #d4dce8; background: #fff; border-radius: 8px;
+    padding: 6px 14px; font-size: 12px; cursor: pointer;
+  }
+  .controls button.active { background: #2b7fff; border-color: #2b7fff; color: #fff; }
+  .stage-wrap { overflow-x: auto; padding-bottom: 8px; }
+  .stage {
+    position: relative; margin: 0 auto; height: 320px;
+    border: 2px dashed #94a3b8; border-radius: 16px; overflow: hidden;
+    background: #fff; transition: width .25s;
+  }
+  .stage-label {
+    position: absolute; top: 8px; left: 10px; z-index: 2;
+    font-size: 11px; color: #64748b; background: rgba(255,255,255,.85); padding: 2px 8px; border-radius: 6px;
+  }
+  .rpx-row { display: flex; gap: 2%; padding: 34px 10px 10px; }
+  .rpx-box {
+    /* 350rpx ≈ 屏幕宽的 46.4%（350/750），宽度随容器等比缩放 */
+    width: 46.4%;
+    border-radius: 10px; padding: 12px; color: #fff; font-size: 12px;
+  }
+  .rpx-box.a { background: linear-gradient(135deg, #2b7fff, #5b9bff); }
+  .rpx-box.b { background: linear-gradient(135deg, #7b5cff, #a78bfa); }
+  .rpx-bar { margin: 10px; height: 16px; border-radius: 8px; }
+  .bar1 { width: 92%; background: #34d399; }
+  .bar2 { width: 64%; background: #fbbf24; }
+  .bar3 { width: 40%; background: #f87171; }
+  .rpx-text { padding: 4px 10px; font-size: 12px; color: #475569; }
+  .viewport { font-size: 12px; color: #334155; }
+  .viewport b { color: #2b7fff; }
+</style>
+</head>
+<body>
+  <h3>rpx 自适应演练：所有元素按 750rpx = 容器宽度等比缩放</h3>
+  <p class="tip">在 uni-app 中 rpx 以 375px 设计稿为基准时 1rpx≈0.5px；无论 320px 手机还是 1920px 宽屏，比例保持一致。</p>
+  <div class="controls">
+    <button data-w="320">320px 小屏手机</button>
+    <button data-w="375" class="active">375px 标准手机</button>
+    <button data-w="768">768px 平板</button>
+    <button data-w="1000" style="display:none">1000px</button>
+    <span class="viewport">当前容器宽度：<b id="vw">375</b>px，换算 1rpx ≈ <b id="ratio">0.500</b>px</span>
+  </div>
+  <div class="stage-wrap">
+    <div class="stage" id="stage" style="width:375px">
+      <div class="stage-label" id="label">模拟设备视口</div>
+      <div class="rpx-row">
+        <div class="rpx-box a">卡片 A · 350rpx</div>
+        <div class="rpx-box b">卡片 B · 350rpx</div>
+      </div>
+      <div class="rpx-bar bar1"></div>
+      <div class="rpx-bar bar2"></div>
+      <div class="rpx-bar bar3"></div>
+      <div class="rpx-text">文字、间距、宽度全部随屏宽等比变化（修改 CSS 比例后点“运行”）</div>
+    </div>
+  </div>
+
+<script>
+var presets = { '320': '320px 小屏手机', '375': '375px 标准手机', '768': '768px 平板' };
+document.querySelector('.controls').addEventListener('click', function (e) {
+  var btn = e.target.closest('button');
+  if (!btn || btn.dataset.w === '1000') return;
+  var w = Number(btn.dataset.w);
+  document.getElementById('stage').style.width = w + 'px';
+  document.getElementById('vw').textContent = w;
+  document.getElementById('ratio').textContent = (w / 750).toFixed(3);
+  document.getElementById('label').textContent = presets[btn.dataset.w];
+  document.querySelectorAll('.controls button').forEach(function (b) {
+    b.classList.toggle('active', b === btn);
+  });
+});
+</script>
+</body>
+</html>

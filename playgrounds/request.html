@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>请求封装演练：Promise 化 + 拦截器</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f4f6fa;
+    color: #1f2937;
+    padding: 16px;
+  }
+  h3 { margin: 0 0 10px; font-size: 15px; }
+  .panel {
+    background: #fff;
+    border: 1px solid #e3e8f0;
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 12px;
+  }
+  button {
+    border: 0;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 13px;
+    background: #2b7fff;
+    color: #fff;
+    cursor: pointer;
+    margin-right: 8px;
+  }
+  button.ghost { background: #eef2ff; color: #2b5bd7; }
+  button:disabled { opacity: .5; cursor: wait; }
+  #log {
+    font-family: ui-monospace, Menlo, monospace;
+    font-size: 12px;
+    line-height: 1.7;
+    background: #0f172a;
+    color: #a7f3d0;
+    border-radius: 10px;
+    padding: 12px 14px;
+    min-height: 150px;
+    white-space: pre-wrap;
+  }
+  .err { color: #fca5a5; } .info { color: #93c5fd; } .ok { color: #86efac; }
+</style>
+</head>
+<body>
+  <div class="panel">
+    <h3>uni.request Promise 化 + 请求/响应拦截器（浏览器内用 Mock 适配器模拟）</h3>
+    <button id="btnOk">发起正常请求</button>
+    <button id="btnFail" class="ghost">模拟 401（自动刷新 Token 后重试）</button>
+  </div>
+  <div id="log"></div>
+
+<script>
+/* ========= 与 uni-app 中等价的核心代码：可随意修改后点“运行” ========= */
+function log(type, msg) {
+  var el = document.getElementById('log');
+  var line = document.createElement('div');
+  line.className = type;
+  line.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+  el.appendChild(line);
+}
+
+// 1) Promise 化：success/fail 回调 -> Promise（uni-app 中把 wx adapter 换成 uni.request）
+function requestAdapter(options) {
+  return new Promise(function (resolve, reject) {
+    setTimeout(function () {
+      // Mock：/user/401 第一次返回 401，刷新 token 后成功
+      if (options.url === '/user/401' && !options.header.Authorization.includes('new')) {
+        reject({ statusCode: 401, data: { message: 'token expired' } });
+      } else {
+        resolve({ statusCode: 200, data: { id: 1, name: 'uni-app 学习者', url: options.url } });
+      }
+    }, 300);
+  });
+}
+
+// 2) 拦截器链
+var requestInterceptors = [
+  function (config) {
+    config.header.Authorization = 'Bearer ' + (localStorage.getItem('token') || 'old-token');
+    log('info', '请求拦截：注入 Token，GET ' + config.url);
+    return config;
+  }
+];
+var responseInterceptors = [];
+
+var baseURL = 'https://api.example.com';
+var isRefreshing = false;
+
+function request(config) {
+  config = Object.assign({ method: 'GET', header: {} }, config);
+  config.url = baseURL + config.url;
+  config = requestInterceptors.reduce(function (c, fn) { return fn(c); }, config);
+
+  return requestAdapter(config).then(function (res) {
+    return responseInterceptors.reduce(function (p, fn) { return fn(p); }, res);
+  }).catch(function (err) {
+    // 3) 401：刷新 Token 并重放原请求（只重放一次）
+    if (err.statusCode === 401 && !config.__retried) {
+      log('err', '响应拦截：401，开始刷新 Token…');
+      return refreshToken().then(function () {
+        config.__retried = true;
+        return request(config);
+      });
+    }
+    throw err;
+  });
+}
+
+function refreshToken() {
+  return new Promise(function (resolve) {
+    setTimeout(function () {
+      localStorage.setItem('token', 'new-token');
+      log('ok', 'Token 已刷新');
+      resolve();
+    }, 400);
+  });
+}
+
+/* ========= 演示触发 ========= */
+document.getElementById('btnOk').onclick = function () {
+  log('info', '-- 发起 /user/profile --');
+  request({ url: '/user/profile' })
+    .then(function (res) { log('ok', '业务成功：' + JSON.stringify(res.data)); })
+    .catch(function (e) { log('err', '失败：' + JSON.stringify(e)); });
+};
+document.getElementById('btnFail').onclick = function () {
+  localStorage.setItem('token', 'old-token');
+  log('info', '-- 发起 /user/401（预期触发刷新重试） --');
+  request({ url: '/user/401' })
+    .then(function (res) { log('ok', '重试后成功：' + JSON.stringify(res.data)); })
+    .catch(function (e) { log('err', '失败：' + JSON.stringify(e)); });
+};
+log('info', '演练场就绪，点击上方按钮');
+</script>
+</body>
+</html>
