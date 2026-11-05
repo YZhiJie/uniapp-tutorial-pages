@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>防抖搜索演练：输入即搜但不打爆接口</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 16px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f4f6fa; color: #1f2937;
+  }
+  h3 { margin: 0 0 10px; font-size: 15px; }
+  input {
+    width: 100%; padding: 11px 14px; font-size: 14px;
+    border: 1px solid #d4dce8; border-radius: 10px; outline: none;
+  }
+  input:focus { border-color: #2b7fff; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+  .card { background: #fff; border: 1px solid #e3e8f0; border-radius: 12px; padding: 14px; min-height: 200px; }
+  .card h4 { margin: 0 0 8px; font-size: 13px; color: #64748b; }
+  .result { padding: 8px 10px; border-radius: 8px; background: #f1f5f9; margin-bottom: 6px; font-size: 13px; }
+  .result b { color: #2b7fff; }
+  #log {
+    font-family: ui-monospace, Menlo, monospace; font-size: 11.5px;
+    line-height: 1.7; color: #cbd5e1; max-height: 220px; overflow: auto;
+  }
+  .call { color: #fca5a5; } .done { color: #86efac; }
+  .count { font-size: 12px; color: #64748b; margin: 8px 0 0; }
+</style>
+</head>
+<body>
+  <h3>防抖（debounce）搜索：停止输入 300ms 后才发起请求</h3>
+  <input id="kw" placeholder="试试快速输入：vue、pinia、uni、组件…" autocomplete="off" />
+  <p class="count">实际接口调用次数：<b id="calls">0</b>（对比：无防抖时每次按键都会请求）</p>
+  <div class="row">
+    <div class="card">
+      <h4>搜索结果（Mock 本地数据）</h4>
+      <div id="results"></div>
+    </div>
+    <div class="card">
+      <h4>请求时间线</h4>
+      <div id="log"></div>
+    </div>
+  </div>
+
+<script>
+/* ===== 可调参数（修改后点“运行”对比效果） ===== */
+var DELAY = 300;
+
+var db = [
+  'uni-app 基础概念', 'uni.request 接口封装', 'Pinia 状态管理',
+  'Vuex 迁移到 Pinia', '自定义组件与插槽', '条件编译跨端适配',
+  '分包加载优化', '虚拟列表渲染', '路由拦截与鉴权',
+  '电商购物车实战', 'WebSocket 即时通讯'
+];
+
+function debounce(fn, delay) {
+  var timer = null;
+  return function () {
+    var args = arguments, ctx = this;
+    clearTimeout(timer);
+    timer = setTimeout(function () { fn.apply(ctx, args); }, delay);
+  };
+}
+
+var calls = 0;
+function search(keyword) {
+  calls += 1;
+  document.getElementById('calls').textContent = calls;
+  appendLog('call', '发起请求：keyword="' + keyword + '"');
+  // 模拟 200ms 网络耗时
+  setTimeout(function () {
+    var list = keyword
+      ? db.filter(function (item) { return item.toLowerCase().indexOf(keyword.toLowerCase()) > -1; })
+      : [];
+    renderResults(list, keyword);
+    appendLog('done', '请求完成：' + list.length + ' 条结果');
+  }, 200);
+}
+var debouncedSearch = debounce(search, DELAY);
+
+function renderResults(list, kw) {
+  var box = document.getElementById('results');
+  if (!kw) { box.innerHTML = '<div class="result">输入关键词开始搜索</div>'; return; }
+  box.innerHTML = list.length
+    ? list.map(function (item) {
+        var html = item.replace(new RegExp(kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'),
+          function (m) { return '<b>' + m + '</b>'; });
+        return '<div class="result">' + html + '</div>';
+      }).join('')
+    : '<div class="result">无匹配结果</div>';
+}
+
+function appendLog(type, msg) {
+  var log = document.getElementById('log');
+  var div = document.createElement('div');
+  div.className = type;
+  div.textContent = new Date().toLocaleTimeString() + ' ' + msg;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+document.getElementById('kw').addEventListener('input', function (e) {
+  debouncedSearch(e.target.value.trim());
+});
+renderResults([], '');
+</script>
+</body>
+</html>

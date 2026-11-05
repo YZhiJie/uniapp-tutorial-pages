@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Pinia 购物车 Store 演练（Composition 语义）</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 16px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f4f6fa; color: #1f2937;
+  }
+  h3 { margin: 0 0 12px; font-size: 15px; }
+  .list { display: grid; gap: 10px; margin-bottom: 14px; }
+  .goods {
+    display: flex; align-items: center; justify-content: space-between;
+    background: #fff; border: 1px solid #e3e8f0; border-radius: 10px; padding: 12px 14px;
+  }
+  .name { font-size: 14px; } .price { color: #e4572e; font-weight: 700; font-size: 13px; }
+  .stepper { display: flex; align-items: center; gap: 10px; }
+  .stepper button {
+    width: 28px; height: 28px; border: 1px solid #d4dce8; background: #fff;
+    border-radius: 6px; font-size: 15px; cursor: pointer; color: #334155;
+  }
+  .stepper b { min-width: 20px; text-align: center; font-size: 14px; }
+  .cart {
+    position: sticky; bottom: 0;
+    background: #1f2937; color: #fff; border-radius: 12px; padding: 14px 16px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .cart strong { color: #fbbf24; font-size: 18px; }
+  .clear { background: transparent; border: 1px solid #64748b; color: #cbd5e1; padding: 6px 12px; border-radius: 8px; font-size: 12px; cursor: pointer; }
+  .tip { font-size: 12px; color: #64748b; margin: 0 0 10px; }
+</style>
+</head>
+<body>
+  <h3>购物车 Store：state / getters / actions + localStorage 持久化</h3>
+  <p class="tip">等价于 Pinia setup store：ref(state) + computed(getter) + function(action)。刷新页面后数量仍在。</p>
+  <div class="list" id="list"></div>
+  <div class="cart">
+    <span>已选 <b id="count">0</b> 件，合计 <strong>¥<span id="total">0.00</span></strong></span>
+    <button class="clear" id="clear">清空购物车</button>
+  </div>
+
+<script>
+/* ========= Store（与 Pinia 组合式写法一一对应，可修改后运行） ========= */
+var STORAGE_KEY = 'playground:cart';
+var goods = [
+  { id: 1, name: 'uni-app 实战手册', price: 59 },
+  { id: 2, name: 'Vue 3 响应式原理小册', price: 39.9 },
+  { id: 3, name: '小程序性能优化课', price: 129 }
+];
+
+function useCartStore() {
+  // state（对应 ref）
+  var items = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+  function persist() { localStorage.setItem(STORAGE_KEY, JSON.stringify(items)); }
+
+  // getters（对应 computed）
+  function count() {
+    return Object.keys(items).reduce(function (sum, id) { return sum + items[id]; }, 0);
+  }
+  function total() {
+    return goods.reduce(function (sum, g) {
+      return sum + (items[g.id] || 0) * g.price;
+    }, 0).toFixed(2);
+  }
+
+  // actions
+  function add(id) { items[id] = (items[id] || 0) + 1; persist(); }
+  function remove(id) {
+    if (!items[id]) return;
+    items[id] -= 1;
+    if (items[id] <= 0) delete items[id];
+    persist();
+  }
+  function clear() { items = {}; persist(); }
+
+  return { get items() { return items; }, count: count, total: total, add: add, remove: remove, clear: clear };
+}
+
+var cart = useCartStore();
+
+/* ========= 视图渲染（真实项目由 Vue 模板自动完成） ========= */
+function render() {
+  document.getElementById('list').innerHTML = goods.map(function (g) {
+    return '<div class="goods"><div><div class="name">' + g.name +
+      '</div><div class="price">¥' + g.price + '</div></div>' +
+      '<div class="stepper"><button data-act="minus" data-id="' + g.id + '">−</button>' +
+      '<b>' + (cart.items[g.id] || 0) + '</b>' +
+      '<button data-act="plus" data-id="' + g.id + '">+</button></div></div>';
+  }).join('');
+  document.getElementById('count').textContent = cart.count();
+  document.getElementById('total').textContent = cart.total();
+}
+document.getElementById('list').addEventListener('click', function (e) {
+  var btn = e.target.closest('button');
+  if (!btn) return;
+  var id = Number(btn.dataset.id);
+  if (btn.dataset.act === 'plus') cart.add(id); else cart.remove(id);
+  render();
+});
+document.getElementById('clear').onclick = function () { cart.clear(); render(); };
+render();
+</script>
+</body>
+</html>
